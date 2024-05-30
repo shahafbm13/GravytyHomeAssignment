@@ -10,30 +10,30 @@
     <orderEntry type="module-library" exported="">
       <library>
         <CLASSES>
-          <root url="file://$MODULE_DIR$/../selenium-java-4.21.0" />
-        </CLASSES>
-        <JAVADOC />
-        <SOURCES>
-          <root url="file://$MODULE_DIR$/../selenium-java-4.21.0" />
-        </SOURCES>
-        <jarDirectory url="file://$MODULE_DIR$/../selenium-java-4.21.0" recursive="false" />
-        <jarDirectory url="file://$MODULE_DIR$/../selenium-java-4.21.0" recursive="false" type="SOURCES" />
-      </library>
-    </orderEntry>
-    <orderEntry type="module-library" exported="">
-      <library>
-        <CLASSES>
-          <root url="file://$MODULE_DIR$/../jar_files" />
+          <root url="file://$MODULE_DIR$/jars/jar_files" />
         </CLASSES>
         <JAVADOC />
         <SOURCES />
-        <jarDirectory url="file://$MODULE_DIR$/../jar_files" recursive="false" />
+        <jarDirectory url="file://$MODULE_DIR$/jars/jar_files" recursive="false" />
       </library>
     </orderEntry>
     <orderEntry type="module-library" exported="">
       <library>
         <CLASSES>
-          <root url="jar://$MODULE_DIR$/../json-simple-1.1.1.jar!/" />
+          <root url="file://$MODULE_DIR$/jars/selenium-java-4.21.0" />
+        </CLASSES>
+        <JAVADOC />
+        <SOURCES>
+          <root url="file://$MODULE_DIR$/jars/selenium-java-4.21.0" />
+        </SOURCES>
+        <jarDirectory url="file://$MODULE_DIR$/jars/selenium-java-4.21.0" recursive="false" />
+        <jarDirectory url="file://$MODULE_DIR$/jars/selenium-java-4.21.0" recursive="false" type="SOURCES" />
+      </library>
+    </orderEntry>
+    <orderEntry type="module-library" exported="">
+      <library>
+        <CLASSES>
+          <root url="jar://$MODULE_DIR$/jars/json-simple-1.1.1.jar!/" />
         </CLASSES>
         <JAVADOC />
         <SOURCES />
