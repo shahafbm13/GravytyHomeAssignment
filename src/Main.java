@@ -1,9 +1,12 @@
+import com.fasterxml.jackson.databind.JsonNode;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import org.json.simple.JSONArray;
 import org.openqa.selenium.*;
 import org.openqa.selenium.chrome.ChromeDriver;
 import org.openqa.selenium.support.ui.ExpectedConditions;
 import org.openqa.selenium.support.ui.WebDriverWait;
 
+import java.io.File;
 import java.io.FileWriter;
 import java.io.IOException;
 import java.time.Duration;
@@ -11,34 +14,38 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Scanner;
 import java.util.concurrent.ThreadLocalRandom;
+
 import org.json.simple.JSONObject;
 
 
 public class Main {
-    private static final String USERNAME = "shahafbenmoshe@gmail.com";
-    private static final String PASSWORD = "13111997";
-    private static final String LINKEDIN_URL = "https://www.linkedin.com/";
+    private static final Scanner scanner = new Scanner(System.in);
+    public static ObjectMapper mapper = new ObjectMapper();
+    public static WebDriver driver = new ChromeDriver();
+    public static WebDriverWait wait = new WebDriverWait(driver, Duration.ofSeconds(10));
+    public static JavascriptExecutor jse = (JavascriptExecutor) driver;
+    public static JSONObject json = new JSONObject();
+    public static JSONArray jsonArray = new JSONArray();
 
     public static void main(String[] args) {
-        Scanner scanner = new Scanner(System.in);
-
-        WebDriver driver = new ChromeDriver();
-        WebDriverWait wait = new WebDriverWait(driver, Duration.ofSeconds(10));
-        JavascriptExecutor jsExecutor = (JavascriptExecutor) driver;
-        JSONObject json = new JSONObject();
 
         try {
-            loginToLinkedin(driver, wait);
-            waitForUserVerification(scanner);
+            LoginInfo loginInfo = getLoginInfo();
+            String USERNAME = loginInfo.getUsername();
+            String PASSWORD = loginInfo.getPassword();
+            String URL = loginInfo.getUrl();
 
-            JSONObject profileJson = extractProfileInfo(driver, wait);
+            loginToLinkedin(USERNAME, PASSWORD, URL);
+            waitForUserVerification();
+
+            JSONObject profileJson = extractProfileInfo();
             json.put("myName", profileJson.get("myName"));
             json.put("myWorkplace", profileJson.get("myWorkplace"));
             json.put("city", profileJson.get("city"));
 
 
-            ArrayList<String> connections = extractConnections(driver, wait, jsExecutor);
-            JSONArray jsonArray = new JSONArray();
+            ArrayList<String> connections = extractConnections();
+
             jsonArray.addAll(connections);
 
             json.put("connections", jsonArray);
@@ -53,13 +60,18 @@ public class Main {
         }
     }
 
+    private static LoginInfo getLoginInfo() throws IOException {
+        JsonNode node = mapper.readTree(new File("./login_info.json"));
+        String username = node.get("username").asText();
+        String password = node.get("password").asText();
+        String url = node.get("url").asText();
+        return new LoginInfo(username, password, url);
+    }
+
     /**
      * Logs into LinkedIn using provided credentials.
-     *
-     * @param driver WebDriver instance
-     * @param wait   WebDriverWait instance
      */
-    private static void loginToLinkedin(WebDriver driver, WebDriverWait wait) {
+    private static void loginToLinkedin(String USERNAME, String PASSWORD, String LINKEDIN_URL) {
         driver.get(LINKEDIN_URL);
         driver.findElement(By.className("nav__button-secondary")).click();
         driver.findElement(By.id("username")).sendKeys(USERNAME);
@@ -70,10 +82,8 @@ public class Main {
 
     /**
      * Waits for user to verify the LinkedIn security page.
-     *
-     * @param scanner Scanner instance to read user input
      */
-    private static void waitForUserVerification(Scanner scanner) {
+    private static void waitForUserVerification() {
         System.out.println("Waiting for user verification...");
         scanner.nextLine();
     }
@@ -81,11 +91,9 @@ public class Main {
     /**
      * Extracts profile information from LinkedIn.
      *
-     * @param driver WebDriver instance
-     * @param wait   WebDriverWait instance
      * @return JSONObject containing profile information
      */
-    private static JSONObject extractProfileInfo(WebDriver driver, WebDriverWait wait) {
+    private static JSONObject extractProfileInfo() {
         JSONObject profileJson = new JSONObject();
         String viewProfileXPath = "//header/div/nav/ul/li[6]/div/div/div/header/a[2]";
         String profileNamePath = "//main/section[1]/div[2]/div[2]/div[1]/div[1]/span/a/h1";
@@ -114,20 +122,17 @@ public class Main {
     /**
      * Extracts connections from LinkedIn profile.
      *
-     * @param driver     WebDriver instance
-     * @param wait       WebDriverWait instance
-     * @param jsExecutor JavascriptExecutor instance
      * @return List of connections
      * @throws InterruptedException if thread sleep is interrupted
      */
-    private static ArrayList<String> extractConnections(WebDriver driver, WebDriverWait wait, JavascriptExecutor jsExecutor) throws InterruptedException {
+    private static ArrayList<String> extractConnections() throws InterruptedException {
         ArrayList<String> connections = new ArrayList<>();
         String connectionsXPath = "//main/section[1]/div[2]/ul/li/a/span";
 
         driver.findElement(By.xpath(connectionsXPath)).click();
         wait.until(ExpectedConditions.visibilityOfElementLocated(By.className("mn-connection-card")));
 
-        scrollToBottom(driver, jsExecutor);
+        scrollToBottom();
 
         List<WebElement> connectionElements = driver.findElements(By.className("mn-connection-card"));
         System.out.println("Total number of connections read: " + connectionElements.size());
@@ -154,11 +159,8 @@ public class Main {
 
     /**
      * Scrolls to the bottom of the page to load all connections.
-     *
-     * @param driver WebDriver instance
-     * @param jse    JavascriptExecutor instance
      */
-    private static void scrollToBottom(WebDriver driver, JavascriptExecutor jse) {
+    private static void scrollToBottom() {
 
         long totalHeight = (long) ((JavascriptExecutor) driver).executeScript("return document.body.scrollHeight");
         try {
