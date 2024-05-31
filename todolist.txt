@@ -1,8 +1,11 @@
-done - read login info from file
+one - read login info from file
 done - Instead of putting all the drivers and everything as input to the function put them as members of the class
-implement a variable - if (driver.findElement(By.xpath("/html/body/div[5]/div[3]/div/div/div/div/div[2]/div/div/main/div/section/div[2]/div[2]/div/button")).isDisplayed()) {
+changed path string to variable, unsure how to better the implementation - implement a variable -
+			 if (driver.findElement(By.xpath("/html/body/div[5]/div[3]/div/div/div/div/div[2]/div/div/main/div/section/div[2]/div[2]/div/button")).isDisplayed()) {
                         driver.findElement(By.xpath("/html/body/div[5]/div[3]/div/div/div/div/div[2]/div/div/main/div/section/div[2]/div[2]/div/button")).click();
+swapped extract connections to switch-case instead of ifs
 
+handle errors - talk with ziv
 its not common to upload the resources you're using
-remove unnecessary files from gitignore
-remove people from the results, that's kind of a privacy violation
+which? - remove unnecessary files from gitignore
+removed results from git - remove people from the results, that's kind of a privacy violation

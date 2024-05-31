@@ -28,7 +28,31 @@ public class Main {
     public static JSONArray jsonArray = new JSONArray();
 
     public static void main(String[] args) {
+        while (true) {
+            System.out.println("Please select test (FE/BE/Q): ");
+            String choice = scanner.nextLine();
 
+            if (choice.equalsIgnoreCase("FE")) {
+                System.out.println("Running Frontend test...");
+                runFrontendTest();
+            } else if (choice.equalsIgnoreCase("BE")) {
+                System.out.println("Running Backend test...");
+                runBackendTest();
+            } else if (choice.equalsIgnoreCase("Q")) {
+                System.out.println("Exiting...");
+                break;
+            } // Invalid choice, exit the program
+            else {
+                System.out.println("Invalid choice. Exiting...");
+            }
+        }
+    }
+
+    private static void runFrontendTest() {
+
+    }
+
+    private static void runBackendTest() {
         try {
             LoginInfo loginInfo = getLoginInfo();
             String USERNAME = loginInfo.getUsername();
@@ -37,25 +61,19 @@ public class Main {
 
             loginToLinkedin(USERNAME, PASSWORD, URL);
             waitForUserVerification();
-
-            JSONObject profileJson = extractProfileInfo();
-            json.put("myName", profileJson.get("myName"));
-            json.put("myWorkplace", profileJson.get("myWorkplace"));
-            json.put("city", profileJson.get("city"));
-
+            extractProfileInfo();
+            writeToFile();
 
             ArrayList<String> connections = extractConnections();
-
             jsonArray.addAll(connections);
-
             json.put("connections", jsonArray);
 
-
-            writeToFile(json);
+            writeToFile();
         } catch (IOException | InterruptedException | WebDriverException e) {
             System.err.println("An error occurred: " + e.getMessage());
             e.printStackTrace();
         } finally {
+            System.out.println("Exiting browser...");
             driver.quit();
         }
     }
@@ -86,6 +104,7 @@ public class Main {
     private static void waitForUserVerification() {
         System.out.println("Waiting for user verification...");
         scanner.nextLine();
+        System.out.println("User verified.");
     }
 
     /**
@@ -93,7 +112,7 @@ public class Main {
      *
      * @return JSONObject containing profile information
      */
-    private static JSONObject extractProfileInfo() {
+    private static void extractProfileInfo() {
         JSONObject profileJson = new JSONObject();
         String viewProfileXPath = "//header/div/nav/ul/li[6]/div/div/div/header/a[2]";
         String profileNamePath = "//main/section[1]/div[2]/div[2]/div[1]/div[1]/span/a/h1";
@@ -108,15 +127,11 @@ public class Main {
         String profileJob = driver.findElement(By.xpath(profileJobPath)).getText();
         String profileLocation = driver.findElement(By.xpath(profileLocationPath)).getText();
 
-        profileJson.put("myName", profileName);
-        profileJson.put("myWorkplace", profileJob);
-        profileJson.put("city", profileLocation);
+        json.put("myName", profileName);
+        json.put("myWorkplace", profileJob);
+        json.put("city", profileLocation);
 
-        System.out.println("Profile Name: " + profileName);
-        System.out.println("Profile Job: " + profileJob);
-        System.out.println("Profile Location: " + profileLocation);
-
-        return profileJson;
+        System.out.println("Profile information added.");
     }
 
     /**
@@ -135,30 +150,47 @@ public class Main {
         scrollToBottom();
 
         List<WebElement> connectionElements = driver.findElements(By.className("mn-connection-card"));
-        System.out.println("Total number of connections read: " + connectionElements.size());
+        System.out.println("Total number of connections read: " + connectionElements.size() + "\nSaving connections...");
 
-        for (int i = 0; i < connectionElements.size(); i++) {
+        int i;
+        for (i = 0; i < connectionElements.size(); i++) {
             String[] connectedUser = connectionElements.get(i).getText().split("\n");
-            if (connectedUser.length == 7) {
-                connections.add(connectedUser[2]);
-                connections.add(connectedUser[4]);
-                connections.add(connectedUser[5]);
-            } else if (connectedUser.length == 6) {
-                connections.add(connectedUser[1]);
-                connections.add(connectedUser[3]);
-                connections.add(connectedUser[4]);
-            } else if (connectedUser.length == 5) {
-                connections.add(connectedUser[1]);
-                connections.add(connectedUser[3]);
+            switch (connectedUser.length) { // Some lines have more information than others, the switch statement handles that
+                case 5:
+                    addConnections(connections, connectedUser, 1, 3);
+                    break;
+                case 6:
+                    addConnections(connections, connectedUser, 1, 3, 4);
+                    break;
+                case 7:
+                    addConnections(connections, connectedUser, 2, 4, 5);
+                    break;
+                default:
+                    break;
             }
-            System.out.println("Added connection number " + i);
         }
-
+        System.out.println("Total number of connections saved: " + i);
         return connections;
     }
 
     /**
+     * Adds connections to the list according to the indices provided.
+     *
+     * @param connections   List of connections
+     * @param connectedUser Array of connected user information
+     * @param indices       Indices of the connected user information to add
+     */
+    private static void addConnections(ArrayList<String> connections, String[] connectedUser, int... indices) {
+        for (int idx : indices) {
+            connections.add(connectedUser[idx]);
+        }
+    }
+
+    /**
      * Scrolls to the bottom of the page to load all connections.
+     *
+     * @throws NoSuchElementException if no such element is found
+     * @throws InterruptedException   if thread sleep is interrupted
      */
     private static void scrollToBottom() {
         String loadMoreButtonXPath = "/html/body/div[5]/div[3]/div/div/div/div/div[2]/div/div/main/div/section/div[2]/div[2]/div/button";
@@ -168,47 +200,57 @@ public class Main {
                 // Scroll down by a fixed amount
                 jse.executeScript("window.scrollTo(0, document.body.scrollHeight);");
 
-                // Random sleep time between 1 and 1.5 seconds
+                // Random sleep time between 1 and 1.5 seconds to let the page load more connections
                 double sleepTime = ThreadLocalRandom.current().nextDouble(1, 1.5) * 1000;
                 Thread.sleep((long) sleepTime);
 
-                if (driver.findElement(By.xpath(loadMoreButtonXPath)).isDisplayed()) {
-                    /*
-                    * for some reason, when clicking "load more connections" it doesn't load more,
-                    * scrolling up and down seems to overcome this issue
-                     */
-                    jse.executeScript("window.scrollBy(0,-50)"); // scroll up
-                    jse.executeScript("window.scrollBy(0,50)"); // scroll down
+//                if (driver.findElement(By.xpath(loadMoreButtonXPath)).isDisplayed()) {
+                /*
+                 * for some reason, when clicking "load more connections" it doesn't load more,
+                 * scrolling up and down seems to overcome this issue
+                 */
+                jse.executeScript("window.scrollBy(0,-50)"); // scroll up
+                jse.executeScript("window.scrollBy(0,50)"); // scroll down
 
-                }
+//                }
 
                 // Get the new height of the page
                 long newHeight = (long) ((JavascriptExecutor) driver).executeScript("return document.body.scrollHeight");
 
                 // Check if the height has changed
                 if (newHeight == totalHeight) {
-                    if (driver.findElement(By.xpath(loadMoreButtonXPath)).isDisplayed()) {
-                        driver.findElement(By.xpath(loadMoreButtonXPath)).click();
-                    } else {
+                    try {
+                        if (driver.findElement(By.xpath(loadMoreButtonXPath)).isDisplayed()) {
+                            driver.findElement(By.xpath(loadMoreButtonXPath)).click();
+                        } else {
+                            break;
+                        }
+                    } catch (NoSuchElementException e) {
+                        System.out.println("No more connections to load.");
                         break;
                     }
                 }
                 // Update the height for the next iteration
                 totalHeight = newHeight;
             }
-        } catch (Exception _) {
+        } catch (NoSuchElementException e) {
+            System.err.println("No such element found: " + e.getMessage());
+        } catch (InterruptedException e) {
+            System.err.println("An error occurred: " + e.getMessage());
         }
     }
 
     /**
      * Writes JSON object to file.
      *
-     * @param json JSON object to write
      * @throws IOException if an I/O error occurs
      */
-    private static void writeToFile(JSONObject json) throws IOException {
+    private static void writeToFile() throws IOException {
         try (FileWriter fileWriter = new FileWriter("./Results.json", false)) {
             fileWriter.write(json.toJSONString());
+        } catch (IOException e) {
+            System.err.println("An error occurred: " + e.getMessage());
+            e.printStackTrace();
         }
     }
 
