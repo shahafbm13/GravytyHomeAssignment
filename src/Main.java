@@ -161,7 +161,7 @@ public class Main {
      * Scrolls to the bottom of the page to load all connections.
      */
     private static void scrollToBottom() {
-
+        String loadMoreButtonXPath = "/html/body/div[5]/div[3]/div/div/div/div/div[2]/div/div/main/div/section/div[2]/div[2]/div/button";
         long totalHeight = (long) ((JavascriptExecutor) driver).executeScript("return document.body.scrollHeight");
         try {
             while (true) {
@@ -172,7 +172,11 @@ public class Main {
                 double sleepTime = ThreadLocalRandom.current().nextDouble(1, 1.5) * 1000;
                 Thread.sleep((long) sleepTime);
 
-                if (driver.findElement(By.xpath("/html/body/div[5]/div[3]/div/div/div/div/div[2]/div/div/main/div/section/div[2]/div[2]/div/button")).isDisplayed()) {
+                if (driver.findElement(By.xpath(loadMoreButtonXPath)).isDisplayed()) {
+                    /*
+                    * for some reason, when clicking "load more connections" it doesn't load more,
+                    * scrolling up and down seems to overcome this issue
+                     */
                     jse.executeScript("window.scrollBy(0,-50)"); // scroll up
                     jse.executeScript("window.scrollBy(0,50)"); // scroll down
 
@@ -183,8 +187,8 @@ public class Main {
 
                 // Check if the height has changed
                 if (newHeight == totalHeight) {
-                    if (driver.findElement(By.xpath("/html/body/div[5]/div[3]/div/div/div/div/div[2]/div/div/main/div/section/div[2]/div[2]/div/button")).isDisplayed()) {
-                        driver.findElement(By.xpath("/html/body/div[5]/div[3]/div/div/div/div/div[2]/div/div/main/div/section/div[2]/div[2]/div/button")).click();
+                    if (driver.findElement(By.xpath(loadMoreButtonXPath)).isDisplayed()) {
+                        driver.findElement(By.xpath(loadMoreButtonXPath)).click();
                     } else {
                         break;
                     }

@@ -27,4 +27,7 @@ bin/
 
 ### Mac OS ###
 .DS_Store
+
 login_info.json
+Results.json
+
