@@ -1,31 +1,37 @@
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import org.json.JSONObject;
+import org.json.JSONTokener;
 import org.json.simple.JSONArray;
+import org.openqa.selenium.NoSuchElementException;
 import org.openqa.selenium.*;
 import org.openqa.selenium.chrome.ChromeDriver;
 import org.openqa.selenium.support.ui.ExpectedConditions;
 import org.openqa.selenium.support.ui.WebDriverWait;
 
-import java.io.File;
-import java.io.FileWriter;
-import java.io.IOException;
+import java.io.*;
+import java.net.HttpURLConnection;
+import java.net.URI;
+import java.net.URISyntaxException;
+import java.net.URL;
 import java.time.Duration;
-import java.util.ArrayList;
-import java.util.List;
-import java.util.Scanner;
+import java.util.*;
 import java.util.concurrent.ThreadLocalRandom;
-
-import org.json.simple.JSONObject;
 
 
 public class Main {
     private static final Scanner scanner = new Scanner(System.in);
-    public static ObjectMapper mapper = new ObjectMapper();
     public static WebDriver driver = new ChromeDriver();
+    public static ObjectMapper mapper = new ObjectMapper();
     public static WebDriverWait wait = new WebDriverWait(driver, Duration.ofSeconds(10));
     public static JavascriptExecutor jse = (JavascriptExecutor) driver;
     public static JSONObject json = new JSONObject();
     public static JSONArray jsonArray = new JSONArray();
+
+    private static final String BASE_URL = "http://api.openweathermap.org/data/2.5/weather";
+    public static String[] cities = new String[]{"Tel Aviv,IL", "London", "New York"};
+    public static Map<String, Double> tempInCities = new HashMap<>();
+
 
     public static void main(String[] args) {
         while (true) {
@@ -48,9 +54,174 @@ public class Main {
         }
     }
 
+    /**
+     * Main method to run the frontend test.
+     * Fetches weather data for each city, verifies and prints it.
+     */
     private static void runFrontendTest() {
+        try {
+            for (String city : cities) {
+                StringBuilder apiResponse = getAPIResponse(city);
+                if (apiResponse != null) {
+                    JSONObject apiResponseJson = new JSONObject(new JSONTokener(apiResponse.toString()));
+                    verifyCountry(getCountry(apiResponseJson), city);
+                    String returnedCity = getCity(apiResponseJson);
+                    getTemp(apiResponseJson, returnedCity);
+                }
+            }
+            System.out.println("\nTemperatures in cities: \n");
+            printCities();
 
+
+        } catch (Exception e) {
+            System.err.println("An error occurred: " + e.getMessage());
+            e.printStackTrace();
+        }
     }
+
+    /**
+     * Fetches API response for a given city.
+     *
+     * @param city The city name
+     * @return The API response as a StringBuilder
+     */
+    private static StringBuilder getAPIResponse(String city) {
+        try {
+            Properties config = new Properties();
+            config.load(new FileInputStream("./config.properties"));
+
+            String API_KEY = config.getProperty("api_key");
+            String formattedCity = city.replace(" ", "%20");
+            String units = formattedCity.equalsIgnoreCase("Tel%20Aviv,il") ? "metric" : "imperial";
+
+            String apiURL = BASE_URL + "?q=" + formattedCity + "&units=" + units+"&APPID=" + API_KEY  ;
+
+            URL url = createURL(apiURL);
+            if (url == null) return null;
+
+            HttpURLConnection connection = (HttpURLConnection) url.openConnection();
+            connection.setRequestMethod("GET");
+            connection.setRequestProperty("Authorization", "Bearer " + API_KEY);
+
+            int responseCode = connection.getResponseCode();
+
+
+            if (responseCode == HttpURLConnection.HTTP_OK) { // HTTP_OK = 200
+                System.out.println("API response received successfully.");
+                System.out.println("Response code: " + responseCode);
+                return readResponse(connection);
+
+            } else {
+                System.err.println("GET request failed, error occurred: " + responseCode);
+            }
+        } catch (IOException e) {
+            System.err.println("An error occurred: " + e.getMessage());
+            e.printStackTrace();
+        }
+        return null;
+    }
+
+    /**
+     * Creates a URL from the given string.
+     *
+     * @param apiURL The API URL string
+     * @return The created URL
+     */
+    private static URL createURL(String apiURL) {
+        try {
+            URI uri = new URI(apiURL);
+            return uri.toURL();
+        } catch (IOException e) {
+            System.err.println("An error occurred: " + e.getMessage());
+            e.printStackTrace();
+            return null;
+        } catch (URISyntaxException e) {
+            throw new RuntimeException(e);
+        }
+    }
+
+    /**
+     * Reads the response from the HTTP connection.
+     *
+     * @param connection The HTTP connection
+     * @return The response as a StringBuilder
+     */
+    private static StringBuilder readResponse(HttpURLConnection connection) {
+
+        try (BufferedReader in = new BufferedReader(new InputStreamReader(connection.getInputStream()))) {
+            String inputLine;
+            StringBuilder response = new StringBuilder();
+            while ((inputLine = in.readLine()) != null) {
+                response.append(inputLine);
+            }
+            return response;
+        } catch (IOException e) {
+            System.err.println("An error occurred: " + e.getMessage());
+            e.printStackTrace();
+        }
+        return null;
+    }
+
+    /**
+     * Extracts the country from the API response.
+     *
+     * @param apiResponse The API response JSON object
+     * @return The country code
+     */
+    public static String getCountry(JSONObject apiResponse) {
+        return apiResponse.getJSONObject("sys").getString("country");
+    }
+
+    /**
+     * Verifies the country code for Tel Aviv.
+     *
+     * @param country The country code
+     * @param city    The city name
+     */
+    private static void verifyCountry(String country, String city) {
+        if (city.equals("Tel Aviv")) {
+            if (!country.equals("IL")) {
+                System.out.println("Invalid country for Tel Aviv");
+            } else {
+                System.out.println("Valid country " + country + " for Tel Aviv");
+            }
+        }
+    }
+
+    /**
+     * Extracts the city name from the API response JSON.
+     *
+     * @param apiResponse The API response JSON object
+     * @return The city name
+     */
+    private static String getCity(JSONObject apiResponse) {
+        String city = apiResponse.getString("name");
+        System.out.println("City: " + city);
+        return city;
+    }
+
+    /**
+     * Extracts the temperature from the API response JSON and stores it in the map.
+     *
+     * @param apiResponse The API response JSON object
+     * @param city        The city name
+     */
+    public static void getTemp(JSONObject apiResponse, String city) {
+        double temp = apiResponse.getJSONObject("main").getDouble("temp");
+        tempInCities.put(city, temp);
+    }
+
+    /**
+     * Prints the stored temperatures for each city.
+     */
+    private static void printCities() {
+        for (Map.Entry<String, Double> entry : tempInCities.entrySet()) {
+            String unit = entry.getKey().equalsIgnoreCase("Tel Aviv") ? "C" : "F";
+            System.out.println(entry.getKey() + ", Temp: " + entry.getValue() + unit);
+        }
+        System.out.println("\n");
+    }
+
 
     private static void runBackendTest() {
         try {
@@ -109,11 +280,8 @@ public class Main {
 
     /**
      * Extracts profile information from LinkedIn.
-     *
-     * @return JSONObject containing profile information
      */
     private static void extractProfileInfo() {
-        JSONObject profileJson = new JSONObject();
         String viewProfileXPath = "//header/div/nav/ul/li[6]/div/div/div/header/a[2]";
         String profileNamePath = "//main/section[1]/div[2]/div[2]/div[1]/div[1]/span/a/h1";
         String profileJobPath = "//main/section[1]/div[2]/div[2]/div[1]/div[2]";
@@ -247,7 +415,7 @@ public class Main {
      */
     private static void writeToFile() throws IOException {
         try (FileWriter fileWriter = new FileWriter("./Results.json", false)) {
-            fileWriter.write(json.toJSONString());
+            fileWriter.write(json.toString());
         } catch (IOException e) {
             System.err.println("An error occurred: " + e.getMessage());
             e.printStackTrace();
