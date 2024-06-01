@@ -9,3 +9,9 @@ handle errors - talk with ziv
 its not common to upload the resources you're using
 which? - remove unnecessary files from gitignore
 removed results from git - remove people from the results, that's kind of a privacy violation
+
+2nd part
+add class for api_info like login info
+
+
+split to two files, one for each task
