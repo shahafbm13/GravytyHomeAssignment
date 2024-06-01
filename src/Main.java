@@ -35,13 +35,13 @@ public class Main {
 
     public static void main(String[] args) {
         while (true) {
-            System.out.println("Please select test (FE/BE/Q): ");
+            System.out.println("Please select test (BE/FE/Q): ");
             String choice = scanner.nextLine();
 
-            if (choice.equalsIgnoreCase("FE")) {
+            if (choice.equalsIgnoreCase("BE")) {
                 System.out.println("Running Frontend test...");
                 runFrontendTest();
-            } else if (choice.equalsIgnoreCase("BE")) {
+            } else if (choice.equalsIgnoreCase("FE")) {
                 System.out.println("Running Backend test...");
                 runBackendTest();
             } else if (choice.equalsIgnoreCase("Q")) {
