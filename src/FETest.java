@@ -23,6 +23,10 @@ public class FETest {
     public static JSONObject json = new JSONObject();
     public static JSONArray jsonArray = new JSONArray();
 
+    public static int ATTEMPT_NUMBER = 10;
+    public static int DELAY_INCREMENT = 1000;
+    public static int MAXIMUM_DELAY = 5000;
+
 
     public static void main(String[] args) {
         runFrontendTest();
@@ -34,23 +38,24 @@ public class FETest {
     private static void runFrontendTest() {
         try {
             LoginInfo loginInfo = getLoginInfo();
-            String USERNAME = loginInfo.getUsername();
-            String PASSWORD = loginInfo.getPassword();
-            String URL = loginInfo.getUrl();
+            boolean loggedIn = loginToLinkedin(loginInfo);
+            if (!loggedIn) {
+                throw new RuntimeException("Failed to login.");
+            }
 
-            loginToLinkedin(USERNAME, PASSWORD, URL);
-            if (!isOnLinkedInFeedPage()) {  // check if there is a verification page
+            // check if there is a verification page
+            if (!isOnLinkedInFeedPage()) {
                 waitForUserVerification();
             }
             extractProfileInfo();
-            writeToFile();
 
             ArrayList<String> connections = extractConnections();
+
             jsonArray.addAll(connections);
             json.put("connections", jsonArray);
 
             writeToFile();
-        } catch (IOException | InterruptedException | WebDriverException e) {
+        } catch (IOException | InterruptedException | RuntimeException e) {
             System.err.println("An error occurred: " + e.getMessage());
             e.printStackTrace();
         } finally {
@@ -73,15 +78,41 @@ public class FETest {
     /**
      * Logs into LinkedIn using provided credentials.
      */
-    private static void loginToLinkedin(String USERNAME, String PASSWORD, String LINKEDIN_URL) {
-        driver.get(LINKEDIN_URL);
-        driver.findElement(By.className("nav__button-secondary")).click();
-        driver.findElement(By.id("username")).sendKeys(USERNAME);
-        driver.findElement(By.id("password")).sendKeys(PASSWORD);
-        driver.findElement(By.className("btn__primary--large")).click();
-        if (!driver.findElements(By.id("error-for-username")).isEmpty()) { // check if login failed
-            retryLogin();
+    private static boolean loginToLinkedin(LoginInfo loginInfo) {
+        try {
+            String LINKEDIN_URL = loginInfo.getUrl();
+
+            driver.get(LINKEDIN_URL);
+            driver.findElement(By.className("nav__button-secondary")).click();
+
+            boolean result = tryLogin(loginInfo);
+
+            // Starts retrying login if invalid credentials are provided
+            for (int i = 1; i <= ATTEMPT_NUMBER; i++) {
+                if (result) {
+                    return true;
+                }
+
+                System.out.println("Invalid credentials. Retrying in " + i + " seconds...");
+
+                System.out.println("Enter new username: ");
+                String newUsername = scanner.nextLine();
+                System.out.println("Enter new password: ");
+                String newPassword = scanner.nextLine();
+
+                int delay = Math.min(MAXIMUM_DELAY, i * DELAY_INCREMENT);
+                Thread.sleep(delay);
+
+                LoginInfo tempLoginInfo = new LoginInfo(newUsername, newPassword, loginInfo.getUrl());
+
+                result = tryLogin(tempLoginInfo);
+
+            }
+        } catch (InterruptedException e) {
+            System.err.println("An error occurred: " + e.getMessage());
         }
+        System.out.println("Failed to login.");
+        return false;
     }
 
     private static boolean isOnLinkedInFeedPage() {
@@ -91,26 +122,16 @@ public class FETest {
     /**
      * Retries login if invalid credentials are provided.
      */
-    private static void retryLogin() {
+    private static boolean tryLogin(LoginInfo loginInfo) {
         try {
-            while (!driver.findElements(By.id("error-for-username")).isEmpty()) {
-                System.out.println("Invalid username or password.\nPlease enter correct username: ");
-                String newUsername = scanner.nextLine();
-                System.out.println("Please enter correct password: ");
-                String newPassword = scanner.nextLine();
-                driver.findElement(By.id("username")).clear();
-                driver.findElement(By.id("username")).sendKeys(newUsername);
-                driver.findElement(By.id("password")).clear();
-                driver.findElement(By.id("password")).sendKeys(newPassword);
-                driver.findElement(By.className("btn__primary--large")).click();
-                try {
-                    Thread.sleep(1000); // wait for login to process
-                } catch (InterruptedException e) {
-                    throw new RuntimeException(e);
-                }
-            }
+            driver.findElement(By.id("username")).clear();
+            driver.findElement(By.id("username")).sendKeys(loginInfo.getUsername());
+            driver.findElement(By.id("password")).clear();
+            driver.findElement(By.id("password")).sendKeys(loginInfo.getPassword());
+            driver.findElement(By.className("btn__primary--large")).click();
+            return driver.findElements(By.id("error-for-username")).isEmpty();
         } catch (RuntimeException e) {
-            throw new RuntimeException(e);
+            return false;
         }
     }
 
@@ -165,10 +186,11 @@ public class FETest {
         List<WebElement> connectionElements = driver.findElements(By.className("mn-connection-card"));
         System.out.println("Total number of connections read: " + connectionElements.size() + "\nSaving connections...");
 
-        int i;
-        for (i = 0; i < connectionElements.size(); i++) {
+        for (int i = 0; i < connectionElements.size(); i++) {
             String[] connectedUser = connectionElements.get(i).getText().split("\n");
-            switch (connectedUser.length) { // Some lines have more information than others, the switch statement handles that
+
+            // Some lines have more information than others, the switch statement handles that
+            switch (connectedUser.length) {
                 case 5:
                     addConnections(connections, connectedUser, 1, 3);
                     break;
@@ -179,10 +201,12 @@ public class FETest {
                     addConnections(connections, connectedUser, 2, 4, 5);
                     break;
                 default:
+                    System.out.println("Invalid connection number: " + i + " with length " + connectedUser.length+ " skipping...");
                     break;
             }
         }
-        System.out.println("Total number of connections saved: " + i);
+
+        System.out.println("Total number of connections saved: " + connectionElements.size() );
         return connections;
     }
 
@@ -213,19 +237,17 @@ public class FETest {
                 // Scroll down by a fixed amount
                 jse.executeScript("window.scrollTo(0, document.body.scrollHeight);");
 
-                // Random sleep time between 1 and 1.5 seconds to let the page load more connections
-                double sleepTime = ThreadLocalRandom.current().nextDouble(1, 1.5) * 1000;
+                // Random sleep time between 1.5 and 2.5 seconds to let the page load more connections
+                double sleepTime = ThreadLocalRandom.current().nextDouble(1.5, 2.5) * 1000;
                 Thread.sleep((long) sleepTime);
 
-//                if (driver.findElement(By.xpath(loadMoreButtonXPath)).isDisplayed()) {
                 /*
-                 * for some reason, when clicking "load more connections" it doesn't load more,
+                 * For some reason, when clicking "load more connections" it doesn't load more,
                  * scrolling up and down seems to overcome this issue
                  */
                 jse.executeScript("window.scrollBy(0,-50)"); // scroll up
                 jse.executeScript("window.scrollBy(0,50)"); // scroll down
 
-//                }
 
                 // Get the new height of the page
                 long newHeight = (long) ((JavascriptExecutor) driver).executeScript("return document.body.scrollHeight");

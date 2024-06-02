@@ -11,10 +11,7 @@ import java.io.BufferedReader;
 import java.io.FileInputStream;
 import java.io.IOException;
 import java.io.InputStreamReader;
-import java.net.HttpURLConnection;
-import java.net.URI;
-import java.net.URISyntaxException;
-import java.net.URL;
+import java.net.*;
 import java.time.Duration;
 import java.util.HashMap;
 import java.util.Map;
@@ -27,6 +24,9 @@ public class BETest {
     public static String[] cities = new String[]{"Tel Aviv,IL", "London", "New York"};
     public static Map<String, Double> tempInCities = new HashMap<>();
 
+    private static final String TLV_UNIT = "metric";
+    private static final String DEFAULT_UNIT = "imperial";
+
     public static void main(String[] args) {
         runBackendTest();
     }
@@ -35,18 +35,19 @@ public class BETest {
         try {
             for (String city : cities) {
                 StringBuilder apiResponse = getAPIResponse(city);
-                System.out.println("API response:\n" + apiResponse + "\n");
+
+                System.out.println("API response:\n" + apiResponse);
+
                 if (apiResponse != null) {
                     JSONObject apiResponseJson = new JSONObject(new JSONTokener(apiResponse.toString()));
                     verifyCountry(getCountry(apiResponseJson), city);
+
                     String returnedCity = getCity(apiResponseJson);
                     getTemp(apiResponseJson, returnedCity);
                 }
             }
             System.out.println("\nTemperatures in cities: \n");
             printCities();
-
-
         } catch (Exception e) {
             System.err.println("An error occurred: " + e.getMessage());
             e.printStackTrace();
@@ -65,8 +66,8 @@ public class BETest {
             config.load(new FileInputStream("./config.properties"));
 
             String API_KEY = config.getProperty("api_key");
-            String formattedCity = city.replace(" ", "%20");
-            String units = formattedCity.equalsIgnoreCase("Tel%20Aviv,il") ? "metric" : "imperial";
+            String formattedCity = URLEncoder.encode(city, "UTF-8");
+            String units = city.equalsIgnoreCase("Tel Aviv,il") ? TLV_UNIT : DEFAULT_UNIT;
 
             String apiURL = BASE_URL + "?q=" + formattedCity + "&units=" + units + "&APPID=" + API_KEY;
 
@@ -79,8 +80,8 @@ public class BETest {
 
             int responseCode = connection.getResponseCode();
 
-
-            if (responseCode == HttpURLConnection.HTTP_OK) { // HTTP_OK = 200
+            // HTTP_OK = 200
+            if (responseCode == HttpURLConnection.HTTP_OK) {
                 System.out.println("API response received successfully.");
                 System.out.println("Response code: " + responseCode);
                 return readResponse(connection);
@@ -121,13 +122,14 @@ public class BETest {
      * @return The response as a StringBuilder
      */
     private static StringBuilder readResponse(HttpURLConnection connection) {
-
         try (BufferedReader in = new BufferedReader(new InputStreamReader(connection.getInputStream()))) {
             String inputLine;
             StringBuilder response = new StringBuilder();
+
             while ((inputLine = in.readLine()) != null) {
                 response.append(inputLine);
             }
+
             return response;
         } catch (IOException e) {
             System.err.println("An error occurred: " + e.getMessage());
@@ -170,7 +172,7 @@ public class BETest {
      */
     private static String getCity(JSONObject apiResponse) {
         String city = apiResponse.getString("name");
-        System.out.println("City: " + city);
+        System.out.println("City: " + city + "\n");
         return city;
     }
 
@@ -191,8 +193,9 @@ public class BETest {
     private static void printCities() {
         for (Map.Entry<String, Double> entry : tempInCities.entrySet()) {
             String unit = entry.getKey().equalsIgnoreCase("Tel Aviv") ? "C" : "F";
-            System.out.println(entry.getKey() + ", Temp: " + entry.getValue() + unit);
+            System.out.println("City: " + entry.getKey() + ", Temp: " + entry.getValue() + unit);
         }
+
         System.out.println("\n");
     }
 }
