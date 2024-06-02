@@ -157,6 +157,9 @@ public class FETest {
         wait.until(ExpectedConditions.visibilityOfElementLocated(By.xpath(viewProfileXPath)));
         driver.findElement(By.xpath(viewProfileXPath)).click();
 
+        //wait until profile loaded
+        wait.until(ExpectedConditions.visibilityOfElementLocated(By.xpath(profileNamePath)));
+
         String profileName = driver.findElement(By.xpath(profileNamePath)).getText();
         String profileJob = driver.findElement(By.xpath(profileJobPath)).getText();
         String profileLocation = driver.findElement(By.xpath(profileLocationPath)).getText();
@@ -185,7 +188,7 @@ public class FETest {
 
         List<WebElement> connectionElements = driver.findElements(By.className("mn-connection-card"));
         System.out.println("Total number of connections read: " + connectionElements.size() + "\nSaving connections...");
-
+        int invalidConnections = 0;
         for (int i = 0; i < connectionElements.size(); i++) {
             String[] connectedUser = connectionElements.get(i).getText().split("\n");
 
@@ -206,7 +209,7 @@ public class FETest {
             }
         }
 
-        System.out.println("Total number of connections saved: " + connectionElements.size() );
+        System.out.println("Total number of connections saved: " + (connectionElements.size() - invalidConnections) + "\n");
         return connections;
     }
 
